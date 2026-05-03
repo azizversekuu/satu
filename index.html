@@ -1,168 +1,168 @@
-+<!doctype html>
-+<html lang="id">
-+<head>
-+  <meta charset="UTF-8" />
-+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-+  <title>Random Nomor</title>
-+  <style>
-+    :root { --blue:#1463ff; --blue-dark:#0f52d6; --bg:#f3f6ff; --text:#0f172a; }
-+    * { box-sizing: border-box; }
-+    body { margin:0; font-family: Inter, system-ui, Arial, sans-serif; background:var(--bg); color:var(--text); }
-+    .wrap { min-height:100vh; display:grid; place-items:center; padding:20px; }
-+    .panel { width:min(720px,100%); background:white; border-radius:16px; padding:20px; box-shadow:0 10px 25px rgba(15,23,42,.08); }
-+    h1 { margin:0 0 14px; font-size:1.4rem; }
-+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-+    input[type="file"] { padding:8px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; }
-+    button { border:none; border-radius:10px; padding:10px 14px; font-weight:600; cursor:pointer; }
-+    #changeBtn { background:var(--blue); color:#fff; }
-+    #changeBtn:hover { background:var(--blue-dark); }
-+    #status { margin-top:10px; font-size:.95rem; }
-+    .error { color:#b91c1c; }
-+    .ok { color:#065f46; }
-+    .card { margin-top:16px; display:none; background:linear-gradient(135deg,var(--blue),#2b7bff); color:#fff; border-radius:14px; padding:16px; }
-+    .card .top { display:flex; justify-content:space-between; align-items:center; gap:12px; }
-+    .num { font-size:1.2rem; font-weight:700; letter-spacing:.2px; word-break:break-all; }
-+    .meta { opacity:.95; margin-top:6px; font-size:.95rem; }
-+    .copyBtn { background:rgba(255,255,255,.2); color:#fff; padding:8px 10px; border-radius:8px; display:flex; gap:8px; align-items:center; }
-+    .copyBtn:hover { background:rgba(255,255,255,.3); }
-+    @media (max-width:520px){ .panel{padding:16px;} .num{font-size:1.05rem;} }
-+  </style>
-+</head>
-+<body>
-+<div class="wrap">
-+  <div class="panel">
-+    <h1>Random Nomor</h1>
-+    <div class="row">
-+      <input id="txtFile" type="file" accept=".txt,text/plain" />
-+      <button id="changeBtn" disabled>Change Number</button>
-+    </div>
-+    <div id="status"></div>
-+
-+    <div id="resultCard" class="card">
-+      <div class="top">
-+        <div>
-+          <div id="displayNumber" class="num">-</div>
-+          <div id="displayMeta" class="meta">-</div>
-+        </div>
-+        <button id="copyBtn" class="copyBtn" title="Copy nomor tanpa kode negara">
-+          📋 Copy
-+        </button>
-+      </div>
-+    </div>
-+  </div>
-+</div>
-+
-+<script type="module">
-+  import { parsePhoneNumberFromString } from 'https://cdn.skypack.dev/libphonenumber-js/min';
-+
-+  const fileInput = document.getElementById('txtFile');
-+  const changeBtn = document.getElementById('changeBtn');
-+  const copyBtn = document.getElementById('copyBtn');
-+  const card = document.getElementById('resultCard');
-+  const statusEl = document.getElementById('status');
-+  const displayNumber = document.getElementById('displayNumber');
-+  const displayMeta = document.getElementById('displayMeta');
-+
-+  let phoneList = [];
-+  let currentPick = null;
-+
-+  const countryNames = new Intl.DisplayNames(['id'], { type: 'region' });
-+
-+  const flagFromCountry = (iso2) => {
-+    if (!iso2) return '🏳️';
-+    return [...iso2.toUpperCase()].map(c => String.fromCodePoint(127397 + c.charCodeAt())).join('');
-+  };
-+
-+  // parsing file txt: baca per baris, bersihkan simbol +, -, spasi, dan non-digit
-+  const parseTxtContent = (text) => {
-+    return text
-+      .split(/\r?\n/)
-+      .map(line => line.replace(/[^\d]/g, ''))
-+      .filter(Boolean);
-+  };
-+
-+  // deteksi negara: parse nomor dengan awalan + lalu ambil ISO country dari libphonenumber
-+  const buildPhoneObjects = (digitNumbers) => {
-+    const parsed = [];
-+    for (const digits of digitNumbers) {
-+      const phone = parsePhoneNumberFromString('+' + digits);
-+      if (!phone) continue;
-+      parsed.push({
-+        rawDigits: digits,
-+        e164: phone.number,
-+        country: phone.country || null,
-+        countryCallingCode: phone.countryCallingCode,
-+        national: phone.nationalNumber || digits,
-+      });
-+    }
-+    return parsed;
-+  };
-+
-+  const setStatus = (text, type='') => {
-+    statusEl.className = type;
-+    statusEl.textContent = text;
-+  };
-+
-+  // random nomor: pilih acak dari list tanpa menghapus item
-+  const pickRandom = () => {
-+    if (!phoneList.length) return null;
-+    return phoneList[Math.floor(Math.random() * phoneList.length)];
-+  };
-+
-+  const renderPick = (item) => {
-+    const flag = flagFromCountry(item.country);
-+    const cName = item.country ? (countryNames.of(item.country) || item.country) : 'Negara tidak dikenali';
-+    displayNumber.textContent = item.e164;
-+    displayMeta.textContent = `${flag} ${cName}`;
-+    card.style.display = 'block';
-+  };
-+
-+  fileInput.addEventListener('change', async (e) => {
-+    card.style.display = 'none';
-+    currentPick = null;
-+    const file = e.target.files?.[0];
-+    if (!file) return;
-+    if (!file.name.toLowerCase().endsWith('.txt')) {
-+      setStatus('Format file harus .txt', 'error');
-+      changeBtn.disabled = true;
-+      return;
-+    }
-+    const text = await file.text();
-+    if (!text.trim()) {
-+      setStatus('File kosong. Masukkan nomor minimal 1 baris.', 'error');
-+      changeBtn.disabled = true;
-+      return;
-+    }
-+
-+    const cleaned = parseTxtContent(text);
-+    phoneList = buildPhoneObjects(cleaned);
-+
-+    if (!phoneList.length) {
-+      setStatus('Tidak ada nomor valid setelah parsing.', 'error');
-+      changeBtn.disabled = true;
-+      return;
-+    }
-+
-+    changeBtn.disabled = false;
-+    setStatus(`Berhasil memuat ${phoneList.length} nomor valid.`, 'ok');
-+    currentPick = pickRandom();
-+    renderPick(currentPick);
-+  });
-+
-+  changeBtn.addEventListener('click', () => {
-+    currentPick = pickRandom();
-+    if (currentPick) renderPick(currentPick);
-+  });
-+
-+  copyBtn.addEventListener('click', async () => {
-+    if (!currentPick) return;
-+    // copy tanpa kode negara: yang dicopy nationalNumber (tanpa dial code), bukan format +E164
-+    const withoutCode = currentPick.national;
-+    await navigator.clipboard.writeText(withoutCode);
-+    const old = copyBtn.textContent;
-+    copyBtn.textContent = '✅ Copied';
-+    setTimeout(() => (copyBtn.textContent = old), 1000);
-+  });
-+</script>
-+</body>
-+</html>
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Random Nomor</title>
+  <style>
+    :root { --blue:#1463ff; --blue-dark:#0f52d6; --bg:#f3f6ff; --text:#0f172a; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Inter, system-ui, Arial, sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { min-height:100vh; display:grid; place-items:center; padding:20px; }
+    .panel { width:min(720px,100%); background:white; border-radius:16px; padding:20px; box-shadow:0 10px 25px rgba(15,23,42,.08); }
+    h1 { margin:0 0 14px; font-size:1.4rem; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    input[type="file"] { padding:8px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; }
+    button { border:none; border-radius:10px; padding:10px 14px; font-weight:600; cursor:pointer; }
+    #changeBtn { background:var(--blue); color:#fff; }
+    #changeBtn:hover { background:var(--blue-dark); }
+    #status { margin-top:10px; font-size:.95rem; }
+    .error { color:#b91c1c; }
+    .ok { color:#065f46; }
+    .card { margin-top:16px; display:none; background:linear-gradient(135deg,var(--blue),#2b7bff); color:#fff; border-radius:14px; padding:16px; }
+    .card .top { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .num { font-size:1.2rem; font-weight:700; letter-spacing:.2px; word-break:break-all; }
+    .meta { opacity:.95; margin-top:6px; font-size:.95rem; }
+    .copyBtn { background:rgba(255,255,255,.2); color:#fff; padding:8px 10px; border-radius:8px; display:flex; gap:8px; align-items:center; }
+    .copyBtn:hover { background:rgba(255,255,255,.3); }
+    @media (max-width:520px){ .panel{padding:16px;} .num{font-size:1.05rem;} }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel">
+    <h1>Random Nomor</h1>
+    <div class="row">
+      <input id="txtFile" type="file" accept=".txt,text/plain" />
+      <button id="changeBtn" disabled>Change Number</button>
+    </div>
+    <div id="status"></div>
+
+    <div id="resultCard" class="card">
+      <div class="top">
+        <div>
+          <div id="displayNumber" class="num">-</div>
+          <div id="displayMeta" class="meta">-</div>
+        </div>
+        <button id="copyBtn" class="copyBtn" title="Copy nomor tanpa kode negara">
+          📋 Copy
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { parsePhoneNumberFromString } from 'https://cdn.skypack.dev/libphonenumber-js/min';
+
+  const fileInput = document.getElementById('txtFile');
+  const changeBtn = document.getElementById('changeBtn');
+  const copyBtn = document.getElementById('copyBtn');
+  const card = document.getElementById('resultCard');
+  const statusEl = document.getElementById('status');
+  const displayNumber = document.getElementById('displayNumber');
+  const displayMeta = document.getElementById('displayMeta');
+
+  let phoneList = [];
+  let currentPick = null;
+
+  const countryNames = new Intl.DisplayNames(['id'], { type: 'region' });
+
+  const flagFromCountry = (iso2) => {
+    if (!iso2) return '🏳️';
+    return [...iso2.toUpperCase()].map(c => String.fromCodePoint(127397 + c.charCodeAt())).join('');
+  };
+
+  // parsing file txt: baca per baris, bersihkan simbol +, -, spasi, dan non-digit
+  const parseTxtContent = (text) => {
+    return text
+      .split(/\r?\n/)
+      .map(line => line.replace(/[^\d]/g, ''))
+      .filter(Boolean);
+  };
+
+  // deteksi negara: parse nomor dengan awalan + lalu ambil ISO country dari libphonenumber
+  const buildPhoneObjects = (digitNumbers) => {
+    const parsed = [];
+    for (const digits of digitNumbers) {
+      const phone = parsePhoneNumberFromString('+' + digits);
+      if (!phone) continue;
+      parsed.push({
+        rawDigits: digits,
+        e164: phone.number,
+        country: phone.country || null,
+        countryCallingCode: phone.countryCallingCode,
+        national: phone.nationalNumber || digits,
+      });
+    }
+    return parsed;
+  };
+
+  const setStatus = (text, type='') => {
+    statusEl.className = type;
+    statusEl.textContent = text;
+  };
+
+  // random nomor: pilih acak dari list tanpa menghapus item
+  const pickRandom = () => {
+    if (!phoneList.length) return null;
+    return phoneList[Math.floor(Math.random() * phoneList.length)];
+  };
+
+  const renderPick = (item) => {
+    const flag = flagFromCountry(item.country);
+    const cName = item.country ? (countryNames.of(item.country) || item.country) : 'Negara tidak dikenali';
+    displayNumber.textContent = item.e164;
+    displayMeta.textContent = `${flag} ${cName}`;
+    card.style.display = 'block';
+  };
+
+  fileInput.addEventListener('change', async (e) => {
+    card.style.display = 'none';
+    currentPick = null;
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.txt')) {
+      setStatus('Format file harus .txt', 'error');
+      changeBtn.disabled = true;
+      return;
+    }
+    const text = await file.text();
+    if (!text.trim()) {
+      setStatus('File kosong. Masukkan nomor minimal 1 baris.', 'error');
+      changeBtn.disabled = true;
+      return;
+    }
+
+    const cleaned = parseTxtContent(text);
+    phoneList = buildPhoneObjects(cleaned);
+
+    if (!phoneList.length) {
+      setStatus('Tidak ada nomor valid setelah parsing.', 'error');
+      changeBtn.disabled = true;
+      return;
+    }
+
+    changeBtn.disabled = false;
+    setStatus(`Berhasil memuat ${phoneList.length} nomor valid.`, 'ok');
+    currentPick = pickRandom();
+    renderPick(currentPick);
+  });
+
+  changeBtn.addEventListener('click', () => {
+    currentPick = pickRandom();
+    if (currentPick) renderPick(currentPick);
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    if (!currentPick) return;
+    // copy tanpa kode negara: yang dicopy nationalNumber (tanpa dial code), bukan format +E164
+    const withoutCode = currentPick.national;
+    await navigator.clipboard.writeText(withoutCode);
+    const old = copyBtn.textContent;
+    copyBtn.textContent = '✅ Copied';
+    setTimeout(() => (copyBtn.textContent = old), 1000);
+  });
+</script>
+</body>
+</html>
